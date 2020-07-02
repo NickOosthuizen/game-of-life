@@ -5,42 +5,83 @@ import tkinter
 
 
 class Game_App(tkinter.Frame):
-    def __init__(self, master, initial_grid):
+    def __init__(self, master):
         super().__init__(master)
         self.master = master
-        self.grid_dim = initial_grid.grid_dim
-        # save a game_of_life object
-        self.game_grid = initial_grid
-        # array tracks canvas widgets
-        self.grid_widgets = []
+        self.display_canvas = None 
+        self.create_welcome_screen()
+
+    def create_welcome_screen(self):
+        # welcome screen is made up of a title label, a direction label, a entry to get size of grid, and a submit button
+        self.welcome_label = tkinter.Label(master = self.master, text = "Welcome to Conway's Game of Life", fg = "black", bg = "white")
+        self.enter_size_label = tkinter.Label(master = self.master, text = "Please enter desired grid size:", fg = "black", bg = "white")
+        self.get_size_entry = tkinter.Entry(master = self.master, fg = "black", bg = "white")
+        # button will attempt to create grid if input is valid
+        self.submit_button = tkinter.Button(master = self.master, text="Submit", command = self.attempt_game_construction)
+        self.welcome_label.pack()
+        self.enter_size_label.pack()
+        self.get_size_entry.pack()
+        self.submit_button.pack()
+
+    def attempt_game_construction(self):
+        size = self.get_size_entry.get()
+        # entered value must be an integer
+        try:
+            size = int(size)
+        except ValueError:
+            self.enter_size_label.config(text = "You must enter an integer > 0!")
+            return 
+
+        # entered value must be greater than 0
+        if size <= 0:
+            self.enter_size_label.config(text = "You must enter an integer > 0!")
+            return
+        
+        self.grid_dim = size
         self.add_grid()
+        self.update_grid()
+
+    # clear the welcome screen
+    def remove_entry_widgets(self):
+        self.welcome_label.pack_forget()
+        self.enter_size_label.pack_forget()
+        self.get_size_entry.pack_forget()
+        self.submit_button.pack_forget()
 
     def add_grid(self):
         size = self.grid_dim
+        self.remove_entry_widgets()
+
+        # app creates its own game grid
+        self.game_grid = game_of_life_grid(size)
+
+        # display is a canvas
+        self.display_canvas = tkinter.Canvas(self.master, width = 5 * size + 5, height = 5 * size + 5, bd = 0, bg = "white")
+        self.display_canvas.pack()
+        
+        # fill canvas with rectangles corresponding to dead and alive cells in the game grid
         for i in range(size):
-            grid_row = []
             for j in range(size):
-                cell_color = 'white'
-                # seed widgets corresponding to living cells as black cells
                 if self.game_grid.grid[i][j] == 1:
-                    cell_color = 'black'
-                # each cell is a canvas widget 
-                square_canvas = tkinter.Canvas(self.master, width = 20, height = 20, bg = cell_color)
-                # widgets aligned in a square grid
-                square_canvas.grid(row = i, column = j)
-                grid_row.append(square_canvas)
-            self.grid_widgets.append(grid_row)
-    
+                    self.display_canvas.create_rectangle(5 * i, 5 * j, 5 * i + 5, 5 * j + 5, width = 0, fill='black')
+                else:
+                    self.display_canvas.create_rectangle(5 * i, 5 * j, 5 * i + 5, 5 * j + 5, width = 0, fill='white')
+        
     def update_grid(self):
+        self.game_grid.play_round()
+
         size = self.grid_dim
         for i in range(size):
             for j in range(size):
                 # update the colors of cells that have changed
                 if self.game_grid.grid[i][j] != self.game_grid.previous_grid[i][j]:
-                    cell_color = 'white'
+                    cell_color = "white"
                     if self.game_grid.grid[i][j] == 1:
-                        cell_color = 'black'
-                    self.grid_widgets[i][j].config(bg = cell_color)
+                        cell_color = "black"
+                    self.display_canvas.create_rectangle(5 * i, 5 * j, 5 * i + 5, 5 * j + 5, width = 0, fill=cell_color)
+        
+        # function calls itself after a delay so that it can run inside the tkinter mainloop
+        self.master.after(250, self.update_grid)
 
 
                 
@@ -52,6 +93,7 @@ class game_of_life_grid():
         self.grid = [[random.randint(0, 1) for i in range(dimension)] for j in range(dimension)]
         self.grid_dim = dimension
         self.previous_grid = None
+        self.change_choords = []
     
     def play_round(self):
         list_size = self.grid_dim
@@ -88,13 +130,16 @@ class game_of_life_grid():
                 if self.grid[i][j] == 1:
                     if num_neighbors < 2:
                         result_grid[i][j] = 0
+                        # self.change_choords.append(((i, j), 0))
                     elif num_neighbors > 3:
                         result_grid[i][j] = 0
+                         # self.change_choords.append(((i, j), 0))
                     else:
                         result_grid[i][j] = 1
                 # If a dead cell has 3 neighbors, a new cell is born
                 elif num_neighbors == 3:
                     result_grid[i][j] = 1
+                    # self.change_choords.append(((i, j), 1))
                 # Otherwise the cell stays dead
                 else:
                     result_grid[i][j] = 0
@@ -113,23 +158,10 @@ class game_of_life_grid():
 
 def play_game():
     size = str()
-    # prompt user for a desired grid size until user gives one
-    while True:
-        size = input("How big do you want your square: ")
-        try:
-            size = int(size)
-            break
-        except ValueError:
-            print("You have to pass in an integer!")
-    cell_grid = game_of_life_grid(size)
     root = tkinter.Tk()
-    app = Game_App(root, cell_grid)
-    # run game until the grid reaches a static state
-    root.update()
-    while True:
-        app.game_grid.play_round()
-        app.update_grid()
-        root.update()
+    root.title("Conway's Game of Life")
+    app = Game_App(root)
+    root.mainloop()
         
 
 if __name__ == "__main__":
